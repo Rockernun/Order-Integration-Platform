@@ -37,9 +37,62 @@
 # 개발 진행 체크리스트
 
 ### Store API (JdbcTemplate)
-- [ ] Store 생성/조회 API 구현
-- [ ] 요청 검증 및 기본 예외 처리(404 등)
-- [ ] README에 Store API 문서화
+- [X] Store 생성/조회 API 구현
+- [x] 요청 검증 및 기본 예외 처리(404 등)
+- [x] README에 Store API 문서화
+
+<details>
+  <summary><b>Store API</b></summary>
+  <div>
+    <h3>매장 생성</h3>
+    <ul>
+      <li><b>Method</b>: <code>POST</code></li>
+      <li><b>Path</b>: <code>/api/stores</code></li>
+      <li><b>Description</b>: 매장을 생성합니다.</li>
+    </ul>
+    <h4>Request Headers</h4>
+    <ul>
+      <li><code>Content-Type: application/json</code></li>
+    </ul>
+    <h4>Request Body</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>name</code></td>
+          <td>string</td>
+          <td>O</td>
+          <td>매장명 (공백/빈 문자열 불가)</td>
+        </tr>
+        <tr>
+          <td><code>partner</code></td>
+          <td>string</td>
+          <td>X</td>
+          <td>연동 파트너명(예: PartnerA)</td>
+        </tr>
+        <tr>
+          <td><code>partnerStoreId</code></td>
+          <td>string</td>
+          <td>X</td>
+          <td>파트너 시스템의 매장 식별자</td>
+        </tr>
+      </tbody>
+    </table>
+    <h4>Example Request</h4>
+    <pre><code>curl -i -X POST http://localhost:8080/api/stores \
+-H "Content-Type: application/json" \
+-d '{"name":"홍대점","partner":"PartnerA","partnerStoreId":"A-101"}'</code></pre>
+
+  </div>
+</details>
+
 
 ---
 
