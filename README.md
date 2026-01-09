@@ -100,7 +100,146 @@
 - [x] 주문 생성 API 구현
 - [x] Idempotency-Key 기반 중복 방지 정책 적용
 - [x] 공통적으로 예외 처리를 위해 GlobalExceptionHandler 추가
-- [ ] README에 멱등 정책 및 주문 API 문서화
+- [x] README에 멱등 정책 및 주문 API 문서화
+
+<details>
+  <summary><b>Idempotency 정책 (Idempotency-Key)</b></summary>
+  <div>
+    <h3>요청 방식</h3>
+    <ul>
+      <li>클라이언트는 주문 생성 요청마다 고유한 <code>Idempotency-Key</code> 값을 생성하여 요청 헤더에 포함해야 합니다.</li>
+      <li>동일 주문에 대해 재시도 요청을 보낼 때는 <b>반드시 동일한 Idempotency-Key를 재사용</b>해야 합니다.</li>
+    </ul>
+    <h4>Header</h4>
+    <ul>
+      <li><code>Idempotency-Key: 멱등키 값</code></li>
+    </ul>
+    <h3>처리 규칙</h3>
+    <ol>
+      <li>
+        <b>Idempotency-Key가 누락/공백인 경우</b>
+        <ul>
+          <li><code>400 Bad Request</code></li>
+          <li>응답: <code>{ "code": "IDEMPOTENCY_KEY_MISSING", "message": "..." }</code></li>
+        </ul>
+      </li>
+      <li>
+        <b>동일 Idempotency-Key로 이미 생성된 주문이 존재하는 경우</b>
+        <ul>
+          <li>주문을 새로 생성하지 않고 기존 주문을 반환합니다. (중복 생성 방지)</li>
+        </ul>
+      </li>
+      <li>
+        <b>동시 요청으로 UNIQUE 충돌이 발생하는 경우</b>
+        <ul>
+          <li>DB의 <code>UNIQUE(idempotency_key)</code> 제약으로 중복 삽입을 방지합니다.</li>
+          <li>충돌 시 기존 주문을 <code>idempotency_key</code>로 재조회하여 기존 주문을 반환합니다.</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+</details>
+
+<details>
+  <summary><b>Order API</b></summary>
+  <div>
+    <h3>주문 생성</h3>
+    <ul>
+      <li><b>Method</b>: <code>POST</code></li>
+      <li><b>Path</b>: <code>/api/orders</code></li>
+    </ul>
+    <b>Request Headers</b>
+    <ul>
+      <li><code>Content-Type: application/json</code></li>
+      <li><code>Idempotency-Key: 멱등키 값</code></li>
+    </ul>
+    <b>Request Body</b>
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>storeId</code></td>
+          <td>number</td>
+          <td>O</td>
+          <td>매장 ID</td>
+        </tr>
+        <tr>
+          <td><code>totalPrice</code></td>
+          <td>number</td>
+          <td>O</td>
+          <td>총 결제 금액</td>
+        </tr>
+      </tbody>
+    </table>
+    <b>Example Request</b>
+    <pre><code>curl -i -X POST http://localhost:8080/api/orders \
+-H "Content-Type: application/json" \
+-H "Idempotency-Key: key-001" \
+-d '{"storeId":1,"totalPrice":50000}'</code></pre>
+    <b>Success Response</b>
+    <ul>
+      <li><b>Status</b>: <code>201 Created</code></li>
+    </ul>
+    <p><b>Body Example</b></p>
+    <pre><code>{
+"id": 1,
+"storeId": 1,
+"status": "CREATED",
+"totalPrice": 50000,
+"createdAt": "2026-01-09T06:00:00Z"
+}</code></pre>
+    <b>Error Responses</b>
+    <h4>400 Bad Request (멱등키 누락)</h4>
+    <pre><code>{
+"code": "IDEMPOTENCY_KEY_MISSING",
+"message": "멱등키 헤더가 필요합니다."
+}</code></pre>
+    <b>404 Not Found (매장 없음)</b>
+    <pre><code>{
+"code": "STORE_NOT_FOUND",
+"message": "Store 아이디가 1인 Store는 찾을 수 없습니다."
+}</code></pre>
+    <b>500 Internal Server Error (예상치 못한 서버 오류)</b>
+    <pre><code>{
+"code": "INTERNAL_SERVER_ERROR",
+"message": "Unexpected error"
+}</code></pre>
+    <hr/>
+    <h3>주문 단건 조회</h3>
+    <ul>
+      <li><b>Method</b>: <code>GET</code></li>
+      <li><b>Path</b>: <code>/api/orders/{id}</code></li>
+    </ul>
+    <b>Example Request</b>
+    <pre><code>curl -i http://localhost:8080/api/orders/1</code></pre>
+    <b>Success Response</b>
+    <ul>
+      <li><b>Status</b>: <code>200 OK</code></li>
+    </ul>
+    <p><b>Body Example</b></p>
+    <pre><code>{
+"id": 1,
+"storeId": 1,
+"status": "CREATED",
+"totalPrice": 50000,
+"createdAt": "2026-01-09T06:00:00Z"
+}</code></pre>
+    <b>Error Responses</b>
+    <h4>404 Not Found (주문 없음)</h4>
+    <pre><code>{
+"code": "ORDER_NOT_FOUND",
+"message": "orderId: 999에 대한 주문 정보를 찾을 수 없습니다."
+}</code></pre>
+  </div>
+</details>
+
 
 ---
 
