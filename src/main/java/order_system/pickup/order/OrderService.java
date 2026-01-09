@@ -48,7 +48,7 @@ public class OrderService {
 
     private void validateIdempotencyKey(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
-            throw new IllegalArgumentException("요청 헤더 Idempotency-Key가 누락되었습니다.");
+            throw new IdempotencyKeyMissingException();
         }
     }
 }
