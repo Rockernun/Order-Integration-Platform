@@ -39,11 +39,11 @@ public class OrderService {
             orderId = orderRepository.save(req, idempotencyKey);
         } catch (DuplicateKeyException e) {
             return orderRepository.findByIdempotencyKey(idempotencyKey)
-                    .orElseThrow(() -> new IllegalStateException("Idempotency-Key 중복이 감지됐지만 기존 주문 조회에 실패했습니다: " + idempotencyKey, e));
+                    .orElseThrow(() -> new IdempotencyKeyInconsistentStateException(idempotencyKey, e));
         }
 
         return orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalStateException("주문이 생성되었으나 조회되지 않습니다. orderId=" + orderId));
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 
     private void validateIdempotencyKey(String idempotencyKey) {
