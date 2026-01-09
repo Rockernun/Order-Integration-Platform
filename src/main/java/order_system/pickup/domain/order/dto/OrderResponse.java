@@ -1,4 +1,4 @@
-package order_system.pickup.order.dto;
+package order_system.pickup.domain.order.dto;
 
 import java.time.Instant;
 

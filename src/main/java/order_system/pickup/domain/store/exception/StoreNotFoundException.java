@@ -1,4 +1,4 @@
-package order_system.pickup.store;
+package order_system.pickup.domain.store.exception;
 
 public class StoreNotFoundException extends RuntimeException {
     public StoreNotFoundException(Long id) {

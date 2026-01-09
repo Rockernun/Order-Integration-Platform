@@ -1,4 +1,4 @@
-package order_system.pickup.store.dto;
+package order_system.pickup.domain.store.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

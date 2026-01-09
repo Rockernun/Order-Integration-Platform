@@ -1,4 +1,4 @@
-package order_system.pickup.order;
+package order_system.pickup.domain.order.exception;
 
 public class OrderNotFoundException extends RuntimeException {
     public OrderNotFoundException(Long orderId) {

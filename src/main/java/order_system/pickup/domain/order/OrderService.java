@@ -1,9 +1,12 @@
-package order_system.pickup.order;
+package order_system.pickup.domain.order;
 
-import order_system.pickup.order.dto.OrderCreateRequest;
-import order_system.pickup.order.dto.OrderResponse;
-import order_system.pickup.store.StoreNotFoundException;
-import order_system.pickup.store.StoreRepository;
+import order_system.pickup.domain.order.dto.OrderCreateRequest;
+import order_system.pickup.domain.order.dto.OrderResponse;
+import order_system.pickup.domain.order.exception.IdempotencyKeyInconsistentStateException;
+import order_system.pickup.domain.order.exception.IdempotencyKeyMissingException;
+import order_system.pickup.domain.order.exception.OrderNotFoundException;
+import order_system.pickup.domain.store.exception.StoreNotFoundException;
+import order_system.pickup.domain.store.StoreRepository;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,10 +1,10 @@
 package order_system.pickup.common;
 
 import java.util.Map;
-import order_system.pickup.order.IdempotencyKeyInconsistentStateException;
-import order_system.pickup.order.IdempotencyKeyMissingException;
-import order_system.pickup.order.OrderNotFoundException;
-import order_system.pickup.store.StoreNotFoundException;
+import order_system.pickup.domain.order.exception.IdempotencyKeyInconsistentStateException;
+import order_system.pickup.domain.order.exception.IdempotencyKeyMissingException;
+import order_system.pickup.domain.order.exception.OrderNotFoundException;
+import order_system.pickup.domain.store.exception.StoreNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;

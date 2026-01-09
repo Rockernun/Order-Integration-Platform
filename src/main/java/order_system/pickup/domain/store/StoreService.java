@@ -1,7 +1,8 @@
-package order_system.pickup.store;
+package order_system.pickup.domain.store;
 
-import order_system.pickup.store.dto.StoreCreateRequest;
-import order_system.pickup.store.dto.StoreResponse;
+import order_system.pickup.domain.store.dto.StoreCreateRequest;
+import order_system.pickup.domain.store.dto.StoreResponse;
+import order_system.pickup.domain.store.exception.StoreNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service

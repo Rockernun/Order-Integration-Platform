@@ -1,10 +1,10 @@
-package order_system.pickup.store;
+package order_system.pickup.domain.store;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.Optional;
-import order_system.pickup.store.dto.StoreCreateRequest;
-import order_system.pickup.store.dto.StoreResponse;
+import order_system.pickup.domain.store.dto.StoreCreateRequest;
+import order_system.pickup.domain.store.dto.StoreResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;

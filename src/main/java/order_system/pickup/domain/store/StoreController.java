@@ -1,8 +1,8 @@
-package order_system.pickup.store;
+package order_system.pickup.domain.store;
 
 import jakarta.validation.Valid;
-import order_system.pickup.store.dto.StoreCreateRequest;
-import order_system.pickup.store.dto.StoreResponse;
+import order_system.pickup.domain.store.dto.StoreCreateRequest;
+import order_system.pickup.domain.store.dto.StoreResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
