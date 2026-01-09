@@ -97,9 +97,9 @@
 ---
 
 ### Order 생성 + 멱등키(Idempotency-Key)
-- [ ] 주문 생성 API 구현
-- [ ] Idempotency-Key 기반 중복 방지 정책 적용
-- [ ] 주문 조회(필요 시) 및 상태 모델(초기) 정리
+- [x] 주문 생성 API 구현
+- [x] Idempotency-Key 기반 중복 방지 정책 적용
+- [x] 공통적으로 예외 처리를 위해 GlobalExceptionHandler 추가
 - [ ] README에 멱등 정책 및 주문 API 문서화
 
 ---
