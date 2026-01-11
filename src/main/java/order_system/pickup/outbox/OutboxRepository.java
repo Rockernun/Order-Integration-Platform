@@ -2,9 +2,11 @@ package order_system.pickup.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import order_system.pickup.outbox.constant.AggregateType;
 import order_system.pickup.outbox.constant.OutboxEventType;
 import order_system.pickup.outbox.dto.OrderCreatedEventPayload;
+import order_system.pickup.outbox.dto.OutboxEvent;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -29,6 +31,48 @@ public class OutboxRepository {
                 payload.orderId(),
                 toJson(payload)
         );
+    }
+
+    public List<OutboxEvent> findPending(int limit) {
+        String sql = """
+            SELECT id, event_type, aggregate_type, aggregate_id, payload, status, retry_count, created_at
+            FROM outbox_events
+            WHERE status = 'PENDING'
+            ORDER BY id
+            LIMIT ?
+            """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new OutboxEvent(
+                rs.getLong("id"),
+                rs.getString("event_type"),
+                rs.getString("aggregate_type"),
+                rs.getLong("aggregate_id"),
+                rs.getString("payload"),
+                rs.getString("status"),
+                rs.getInt("retry_count"),
+                rs.getTimestamp("created_at").toInstant()
+        ), limit);
+    }
+
+    public int markProcessed(Long id) {
+        String sql = """
+            UPDATE outbox_events
+            SET status = 'PROCESSED', processed_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND status = 'PENDING'
+            """;
+
+        return jdbcTemplate.update(sql, id);
+    }
+
+    public int markFailedOrRetry(Long id, int nextRetryCount, boolean toFailed) {
+        String sql = """
+            UPDATE outbox_events
+            SET status = ?, retry_count = ?, processed_at = CASE WHEN ? = 'FAILED' THEN CURRENT_TIMESTAMP ELSE processed_at END
+            WHERE id = ?
+            """;
+
+        String status = toFailed ? "FAILED" : "PENDING";
+        return jdbcTemplate.update(sql, status, nextRetryCount, status, id);
     }
 
     private String toJson(OrderCreatedEventPayload payload) {
