@@ -7,6 +7,8 @@ import order_system.pickup.domain.order.exception.IdempotencyKeyMissingException
 import order_system.pickup.domain.order.exception.OrderNotFoundException;
 import order_system.pickup.domain.store.exception.StoreNotFoundException;
 import order_system.pickup.domain.store.StoreRepository;
+import order_system.pickup.outbox.OutboxRepository;
+import order_system.pickup.outbox.dto.OrderCreatedEventPayload;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,10 +18,12 @@ public class OrderService {
 
     private final StoreRepository storeRepository;
     private final OrderRepository orderRepository;
+    private final OutboxRepository outboxRepository;
 
-    public OrderService(StoreRepository storeRepository, OrderRepository orderRepository) {
+    public OrderService(StoreRepository storeRepository, OrderRepository orderRepository, OutboxRepository outboxRepository) {
         this.storeRepository = storeRepository;
         this.orderRepository = orderRepository;
+        this.outboxRepository = outboxRepository;
     }
 
     @Transactional
@@ -44,6 +48,16 @@ public class OrderService {
             return orderRepository.findByIdempotencyKey(idempotencyKey)
                     .orElseThrow(() -> new IdempotencyKeyInconsistentStateException(idempotencyKey, e));
         }
+
+        var payload = OrderCreatedEventPayload.of(
+                orderId,
+                req.storeId(),
+                req.totalPrice(),
+                idempotencyKey,
+                java.util.UUID.randomUUID().toString(),
+                java.time.Instant.now()
+        );
+        outboxRepository.saveOrderCreated(payload);
 
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
