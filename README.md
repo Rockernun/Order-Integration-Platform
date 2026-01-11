@@ -244,16 +244,123 @@
 ---
 
 ### Outbox 패턴 적용
-- [ ] 주문 생성 트랜잭션에 outbox 이벤트 저장
-- [ ] 이벤트 스키마/페이로드 형식 정의
-- [ ] README에 Outbox 패턴 및 흐름 문서화
+- [x] 주문 생성 트랜잭션에 outbox 이벤트 저장
+- [x] 이벤트 스키마/페이로드 형식 정의
+- [x] README에 Outbox 패턴 및 흐름 문서화
+
+<details>
+  <summary><b>Outbox 패턴 적용</b></summary>
+  <div>
+
+<h3>목표</h3>
+  <p>
+    주문 생성 과정에서 발생하는 후속 작업(파트너 전송, VAN 승인 요청 등)을 <b>트랜잭션 정합성</b>을 유지하면서
+    안정적으로 처리하기 위해 <b>Outbox 패턴</b>을 적용했습니다.
+  </p>
+
+<h3>왜 Outbox 패턴?</h3>
+  <ul>
+    <li>
+      <b>이벤트 유실 방지</b>: 주문 저장(DB commit)과 이벤트 저장(outbox)을 같은 트랜잭션으로 묶어
+      “주문은 저장됐는데 이벤트가 없는” 상황을 방지합니다.
+    </li>
+    <li>
+      <b>외부 연동 장애 격리</b>: 파트너/VAN 등 외부 시스템 장애가 있어도 주문 생성 API를 안정적으로 유지하고,
+      후속 작업은 별도 디스패처가 재시도하며 처리합니다.
+    </li>
+    <li>
+      <b>운영 가능성</b>: 이벤트 처리 상태(PENDING/PROCESSED/FAILED)와 재시도 횟수(retry_count)가 DB에 남아
+      모니터링 및 복구가 가능합니다.
+    </li>
+  </ul>
+
+<h3>구현 내용</h3>
+  <ul>
+    <li><b>주문 생성 트랜잭션에 outbox 이벤트 저장</b>
+      <ul>
+        <li>주문 생성 성공 시 <code>outbox_events</code> 테이블에 <code>ORDER_CREATED</code> 이벤트를 함께 저장</li>
+        <li>주문 INSERT와 outbox INSERT가 동일 트랜잭션에서 커밋/롤백되도록 구성</li>
+        <li>멱등키(Idempotency-Key)로 인해 “기존 주문 반환”인 경우 outbox 이벤트를 재적재하지 않도록 처리</li>
+      </ul>
+    </li>
+    <li><b>이벤트 스키마/페이로드 형식 정의</b>
+      <ul>
+        <li><code>event_type</code>, <code>aggregate_type</code>, <code>aggregate_id</code>, <code>payload(JSON)</code> 기반으로 표준화</li>
+        <li>payload는 이벤트별 DTO로 정의하여 스키마를 명확히 유지</li>
+      </ul>
+    </li>
+  </ul>
+
+<h3>Outbox 이벤트 테이블(outbox_events)</h3>
+  <ul>
+    <li><b>status</b>: <code>PENDING</code> → <code>PROCESSED</code> / <code>FAILED</code></li>
+    <li><b>retry_count</b>: 실패 시 재시도 횟수 증가</li>
+    <li><b>processed_at</b>: 성공/최종 실패 시점 기록</li>
+  </ul>
+
+<h3>흐름 요약</h3>
+  <ol>
+    <li>클라이언트가 주문 생성 요청(멱등키 포함)</li>
+    <li>서버가 주문을 저장</li>
+    <li>같은 트랜잭션에서 outbox 이벤트(<code>ORDER_CREATED</code>)를 <code>PENDING</code> 상태로 저장</li>
+    <li>커밋 완료 후 outbox 디스패처가 이벤트를 처리(전송/후속 작업)</li>
+  </ol>
+
+  </div>
+</details>
 
 ---
 
 ### Outbox 워커 + 전송 처리
-- [ ] outbox 이벤트 폴링 워커 구현
-- [ ] 전송 성공/실패 처리 및 재시도 기본 정책 적용
-- [ ] README에 outbox 상태 전이/워커 동작 문서화
+- [x] outbox 이벤트 폴링 워커 구현
+- [x] 전송 성공/실패 처리 및 재시도 기본 정책 적용
+- [x] README에 outbox 상태 전이/워커 동작 문서화
+
+
+<details>
+  <summary><b>Outbox 워커 + 전송 처리</b></summary>
+  <div>
+
+<h3>목표</h3>
+  <p>
+    Outbox 테이블에 쌓인 <code>PENDING</code> 이벤트를 <b>Dispatcher</b>가 폴링하여 처리하고,
+    결과를 <code>PROCESSED</code> / <code>FAILED</code>로 기록해 결국 처리되도록 합니다.
+  </p>
+
+<h3>구현 내용</h3>
+  <ul>
+    <li><b>outbox 이벤트 폴링 워커 구현</b>
+      <ul>
+        <li>일정 주기마다 <code>status='PENDING'</code> 이벤트를 배치로 조회(<code>findPending(limit)</code>)</li>
+        <li>이벤트 타입 기반으로 처리 로직 분기(현재는 mock 처리, 추후 파트너/VAN 호출로 확장할 예정)</li>
+      </ul>
+    </li>
+    <li><b>전송 성공/실패 처리 및 재시도 기본 정책 적용</b>
+      <ul>
+        <li>성공 시: <code>status='PROCESSED'</code>, <code>processed_at=NOW()</code> 업데이트</li>
+        <li>실패 시: <code>retry_count</code> 증가</li>
+        <li>최대 재시도 횟수 초과 시: <code>status='FAILED'</code>로 전환(자동 처리 대상에서 제외)</li>
+      </ul>
+    </li>
+  </ul>
+
+<h3>이벤트 상태 변경</h3>
+  <ul>
+    <li><code>PENDING</code> → <code>PROCESSED</code> : 처리 성공</li>
+    <li><code>PENDING</code> → <code>PENDING</code> : 처리 실패(재시도 횟수 증가 후 재시도 대기)</li>
+    <li><code>PENDING</code> → <code>FAILED</code> : 재시도 한계 초과(수동 조치 필요)</li>
+  </ul>
+
+<h3>디스패처 동작</h3>
+  <ol>
+    <li><code>PENDING</code> 이벤트를 일정 개수(batch) 조회</li>
+    <li>이벤트별 처리 수행(전송/후속 작업)</li>
+    <li>성공 시 <code>markProcessed(id)</code>로 상태 갱신</li>
+    <li>실패 시 <code>retry_count</code> 증가, 한계 초과 시 <code>FAILED</code> 전환</li>
+  </ol>
+
+  </div>
+</details>
 
 ---
 
