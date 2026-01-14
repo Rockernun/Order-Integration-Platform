@@ -1,4 +1,4 @@
-package order_system.pickup.partner.mock;
+package order_system.pickup.partner.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
