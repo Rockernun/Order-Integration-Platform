@@ -365,9 +365,97 @@
 ---
 
 ### Partner Mock + Adapter 구조
-- [ ] Partner Mock 서버(또는 엔드포인트) 구현
-- [ ] 파트너별 어댑터/클라이언트 구조 도입(변환/전송)
-- [ ] README에 파트너 계약(Contract) 및 Adapter 구조 문서화
+- [x] 임시로 Partner Mock 구현
+- [x] 파트너별 어댑터/클라이언트 구조 도입
+- [x] README에 파트너 계약(Contract) 및 Adapter 구조 문서화
+
+<details>
+  <summary><b>Partner Mock + Adapter 구조</b></summary>
+  <div>
+    <h3>목표</h3>
+    <ul>
+      <li>OutboxDispatcher가 <code>ORDER_CREATED</code> 이벤트를 처리할 때, 파트너 시스템으로 주문을 전송하는 흐름을 검증합니다.</li>
+      <li>실제 외부 파트너 API 대신, 프로젝트 내부에 <b>Partner Mock 엔드포인트</b>를 두어 안정적으로 통합 테스트가 가능하도록 했습니다.</li>
+      <li>파트너별 계약이 달라질 수 있으므로, <b>Adapter(변환)</b> + <b>Client(전송)</b>로 책임을 분리했습니다.</li>
+    </ul>
+    <hr/>
+    <h3>임시 Partner Mock</h3>
+    <p>
+      실제 외부 파트너 서버 대신, 로컬에서 동작하는 Mock 엔드포인트로 주문 전송을 검증합니다.
+      OutboxDispatcher는 PartnerClient를 통해 Mock URL로 주문을 전송합니다.
+    </p>
+    <h4>PartnerA Mock</h4>
+    <ul>
+      <li><b>Method</b>: <code>POST</code></li>
+      <li><b>Path</b>: <code>/mock/partner-a/orders</code></li>
+      <li><b>Description</b>: PartnerA가 주문을 수신하는 상황을 로컬에서 Mock합니다.</li>
+    </ul>
+    <h4>요청 예시</h4>
+    <pre><code class="language-bash">curl -i -X POST http://localhost:8080/mock/partner-a/orders \
+-H "Content-Type: application/json" \
+-d '{"externalOrderId": 10, "partnerStoreId":"A-101", "amount": 15000}'</code></pre>
+    <hr/>
+    <h3>Adapter / Client 책임 분리</h3>
+    <h4>분리한 이유</h4>
+    <ul>
+      <li><b>Partner Contract 변화 대응</b>: 파트너별 요청 필드/형식이 바뀌어도 Adapter만 수정하면 됩니다.</li>
+      <li><b>전송 로직 격리</b>: HTTP 호출/에러 처리/타임아웃 등은 Client가 책임집니다.</li>
+      <li><b>Outbox 로직 단순화</b>: Dispatcher는 이벤트 처리와 라우팅에 집중하고, 변환/전송은 하위 컴포넌트에 위임합니다.</li>
+    </ul>
+    <h4>구성 요소</h4>
+    <ul>
+      <li><b>Adapter</b>: Canonical(Order/Store) → Partner Contract DTO로 변환</li>
+      <li><b>Client</b>: Partner Contract DTO를 실제 전송(HTTP)</li>
+      <li><b>Dispatcher</b>: Outbox 이벤트 폴링 후, partner에 맞는 Adapter/Client로 라우팅</li>
+    </ul>
+    <hr/>
+    <h3>PartnerA Contract(요청 스키마)</h3>
+    <h4>PartnerAOrderRequest</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>externalOrderId</code></td>
+          <td>number</td>
+          <td>O</td>
+          <td>내부 시스템의 주문 ID(외부 전송용)</td>
+        </tr>
+        <tr>
+          <td><code>partnerStoreId</code></td>
+          <td>string</td>
+          <td>O</td>
+          <td>파트너 시스템의 매장 식별자(<code>stores.partner_store_id</code>)</td>
+        </tr>
+        <tr>
+          <td><code>amount</code></td>
+          <td>number</td>
+          <td>O</td>
+          <td>주문 금액(예: <code>orders.total_price</code>)</td>
+        </tr>
+      </tbody>
+    </table>
+    <hr/>
+    <h3>처리 흐름(Outbox → Partner 전송)</h3>
+    <ol>
+      <li>주문 생성 트랜잭션에서 <code>outbox_events</code>에 <code>ORDER_CREATED</code> 이벤트 저장</li>
+      <li>OutboxDispatcher가 <code>PENDING</code> 이벤트 폴링</li>
+      <li>이벤트의 <code>aggregate_id</code>(orderId)로 주문 조회</li>
+      <li>주문의 <code>store_id</code>로 매장 조회</li>
+      <li>매장의 <code>partner</code> 값에 따라 Adapter/Client 선택</li>
+      <li>Adapter가 PartnerA 요청 DTO로 변환</li>
+      <li>Client가 Partner Mock(또는 실제 파트너 API)로 HTTP 전송</li>
+      <li>성공 시 outbox <code>PROCESSED</code>, 실패 시 재시도 후 <code>FAILED</code></li>
+    </ol>
+  </div>
+</details>
+
 
 ---
 
