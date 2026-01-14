@@ -1,6 +1,7 @@
 package order_system.pickup.partner.mock;
 
 import jakarta.validation.Valid;
+import order_system.pickup.partner.dto.PartnerAOrderRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
