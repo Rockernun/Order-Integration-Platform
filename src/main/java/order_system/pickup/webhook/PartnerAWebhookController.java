@@ -13,11 +13,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/webhooks/partner-a")
 public class PartnerAWebhookController {
 
+    private final PartnerAWebhookService partnerAWebhookService;
+
+    public PartnerAWebhookController(PartnerAWebhookService partnerAWebhookService) {
+        this.partnerAWebhookService = partnerAWebhookService;
+    }
+
     @PostMapping("/orders")
     public ResponseEntity<Void> receiveOrderWebhook(
             @RequestHeader("X-Event-Id") String eventId,
             @RequestBody @Valid PartnerAWebhookRequest req
     ) {
+        partnerAWebhookService.handle(eventId, req);
         return ResponseEntity.ok().build();
     }
 }
