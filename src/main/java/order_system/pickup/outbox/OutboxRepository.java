@@ -3,6 +3,7 @@ package order_system.pickup.outbox;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import order_system.pickup.ops.outbox.dto.OutboxEventResponse;
 import order_system.pickup.outbox.constant.AggregateType;
 import order_system.pickup.outbox.constant.OutboxEventType;
 import order_system.pickup.outbox.dto.OrderCreatedEventPayload;
@@ -105,6 +106,40 @@ public class OutboxRepository {
         """;
 
         return jdbcTemplate.update(sql, nextRetryCount, lastError, id);
+    }
+
+    public List<OutboxEventResponse> findByStatus(String status, int limit) {
+        String sql = """
+        SELECT id, event_type, aggregate_type, aggregate_id, status, retry_count, next_run_at, last_error, created_at
+        FROM outbox_events
+        WHERE status = ?
+        ORDER BY id DESC
+        LIMIT ?
+        """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new OutboxEventResponse(
+                rs.getLong("id"),
+                rs.getString("event_type"),
+                rs.getString("aggregate_type"),
+                rs.getLong("aggregate_id"),
+                rs.getString("status"),
+                rs.getInt("retry_count"),
+                rs.getTimestamp("next_run_at") != null ? rs.getTimestamp("next_run_at").toInstant() : null,
+                rs.getString("last_error"),
+                rs.getTimestamp("created_at").toInstant()
+        ), status, limit);
+    }
+
+    public int forceRetry(Long id) {
+        String sql = """
+        UPDATE outbox_events
+        SET status = 'PENDING',
+            next_run_at = CURRENT_TIMESTAMP,
+            processed_at = NULL
+        WHERE id = ?
+        """;
+
+        return jdbcTemplate.update(sql, id);
     }
 
     private String toJson(OrderCreatedEventPayload payload) {
