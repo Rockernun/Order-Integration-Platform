@@ -25,9 +25,11 @@
 - Spring Web (REST API)
 - Spring JDBC
 - Flyway 11.7.2
+- k6 1.5.0
 
 ### Database / Infra
-- MySQL **8.0.43** (Docker)
+- MySQL 8.0.43 (Docker)
+- Redis 7.4-alpine (Docker)
 - Docker Compose
 
 ---
