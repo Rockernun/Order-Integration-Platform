@@ -50,6 +50,8 @@ public class OutboxRepository {
                 rs.getString("payload"),
                 rs.getString("status"),
                 rs.getInt("retry_count"),
+                rs.getTimestamp("next_run_at") != null ? rs.getTimestamp("next_run_at").toInstant() : null,
+                rs.getString("last_error"),
                 rs.getTimestamp("created_at").toInstant()
         ), limit);
     }
@@ -57,7 +59,10 @@ public class OutboxRepository {
     public int markProcessed(Long id) {
         String sql = """
             UPDATE outbox_events
-            SET status = 'PROCESSED', processed_at = CURRENT_TIMESTAMP
+            SET status = 'PROCESSED', 
+                processed_at = CURRENT_TIMESTAMP,
+                next_run_at = NULL,
+                last_error = NULL,
             WHERE id = ? AND status = 'PENDING'
             """;
 
@@ -73,6 +78,33 @@ public class OutboxRepository {
 
         String status = toFailed ? "FAILED" : "PENDING";
         return jdbcTemplate.update(sql, status, nextRetryCount, status, id);
+    }
+
+    public int markRetry(Long id, int nextRetryCount, int nextDelaySeconds, String lastError) {
+        String sql = """
+        UPDATE outbox_events
+        SET status = 'PENDING',
+            retry_count = ?,
+            next_run_at = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? SECOND),
+            last_error = ?
+        WHERE id = ?
+        """;
+
+        return jdbcTemplate.update(sql, nextRetryCount, nextDelaySeconds, lastError, id);
+    }
+
+    public int markFailed(Long id, int nextRetryCount, String lastError) {
+        String sql = """
+        UPDATE outbox_events
+        SET status = 'FAILED',
+            retry_count = ?,
+            processed_at = CURRENT_TIMESTAMP,
+            next_run_at = NULL,
+            last_error = ?
+        WHERE id = ?
+        """;
+
+        return jdbcTemplate.update(sql, nextRetryCount, lastError, id);
     }
 
     private String toJson(OrderCreatedEventPayload payload) {
