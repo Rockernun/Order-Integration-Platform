@@ -70,6 +70,59 @@ public class OutboxDispatcher {
         }
     }
 
+    private void handleFailureWithBackoff(OutboxEvent event, Exception e) {
+        int nextRetry = event.retryCount() + 1;
+        String lastError = safeErrorMessage(e);
+
+        if (nextRetry > MAX_RETRY_COUNT) {
+            outboxRepository.markFailed(event.id(), nextRetry, lastError);
+
+            log.warn("outbox DLQ(FAILED) 전환: id={}, type={}, retry={}, reason={}",
+                    event.id(), event.eventType(), nextRetry, lastError, e);
+            return;
+        }
+
+        int delaySeconds = nextDelaySeconds(event.retryCount());
+
+        outboxRepository.markRetry(event.id(), nextRetry, delaySeconds, lastError);
+
+        log.warn("outbox 재시도 예약: id={}, type={}, retry={}, delay={}s, reason={}",
+                event.id(), event.eventType(), nextRetry, delaySeconds, lastError, e);
+    }
+
+    private int nextDelaySeconds(int retryCount) {
+        if (retryCount == 0) {
+            return 5;
+        }
+
+        if (retryCount == 1) {
+            return 15;
+        }
+
+        if (retryCount == 2) {
+            return 30;
+        }
+
+        if (retryCount == 3) {
+            return 60;
+        }
+
+        return 120;
+    }
+
+    private String safeErrorMessage(Exception e) {
+        String msg = e.getMessage();
+        if (msg == null || msg.isBlank()) {
+            msg = e.getClass().getSimpleName();
+        }
+
+        int maxLen = 500;
+        if (msg.length() > maxLen) {
+            return msg.substring(0, maxLen);
+        }
+        return msg;
+    }
+
     private void handle(OutboxEvent event) throws Exception {
         if ("ORDER_CREATED".equals(event.eventType())) {
             Long orderId = event.aggregateId();

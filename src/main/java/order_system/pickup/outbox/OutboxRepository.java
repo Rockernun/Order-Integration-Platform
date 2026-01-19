@@ -37,7 +37,7 @@ public class OutboxRepository {
         String sql = """
             SELECT id, event_type, aggregate_type, aggregate_id, payload, status, retry_count, created_at
             FROM outbox_events
-            WHERE status = 'PENDING'
+            WHERE status = 'PENDING' AND (next_run_at IS NULL OR next_run_at <= CURRENT_TIMESTAMP)
             ORDER BY id
             LIMIT ?
             """;
