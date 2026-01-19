@@ -36,12 +36,14 @@ public class OutboxRepository {
 
     public List<OutboxEvent> findPending(int limit) {
         String sql = """
-            SELECT id, event_type, aggregate_type, aggregate_id, payload, status, retry_count, created_at
-            FROM outbox_events
-            WHERE status = 'PENDING' AND (next_run_at IS NULL OR next_run_at <= CURRENT_TIMESTAMP)
-            ORDER BY id
-            LIMIT ?
-            """;
+        SELECT id, event_type, aggregate_type, aggregate_id, payload, status,
+               retry_count, next_run_at, last_error, created_at
+        FROM outbox_events
+        WHERE status = 'PENDING'
+          AND (next_run_at IS NULL OR next_run_at <= CURRENT_TIMESTAMP)
+        ORDER BY id
+        LIMIT ?
+        """;
 
         return jdbcTemplate.query(sql, (rs, rowNum) -> new OutboxEvent(
                 rs.getLong("id"),
@@ -63,7 +65,7 @@ public class OutboxRepository {
             SET status = 'PROCESSED', 
                 processed_at = CURRENT_TIMESTAMP,
                 next_run_at = NULL,
-                last_error = NULL,
+                last_error = NULL
             WHERE id = ? AND status = 'PENDING'
             """;
 

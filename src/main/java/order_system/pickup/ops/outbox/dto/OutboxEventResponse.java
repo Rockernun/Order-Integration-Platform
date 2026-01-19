@@ -11,5 +11,5 @@ public record OutboxEventResponse(
         int retryCount,
         Instant nextRunAt,
         String lastError,
-        Instant createAt
+        Instant createdAt
 ) {}
