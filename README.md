@@ -599,9 +599,9 @@ PARTNER_A_WEBHOOK_TOKEN=partner-a-secret</code></pre>
 ---
 
 ### 재시도/백오프/DLQ
-- [ ] 재시도 정책 고도화(백오프/최대 횟수)
-- [ ] DLQ(실패 적재) 설계/적용
-- [ ] 운영용 조회/재처리 API 추가
+- [x] 재시도 정책 고도화(백오프/최대 횟수)
+- [x] DLQ(실패 적재) 설계/적용
+- [x] 운영용 조회/재처리 API 추가
 
 <details>
   <summary><b>📝 재시도/백오프/DLQ + 운영 기능</b></summary>
