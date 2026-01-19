@@ -460,10 +460,141 @@
 ---
 
 ### Webhook 수신 + 중복 방지
-- [ ] 파트너 webhook 수신 엔드포인트 구현
-- [ ] (선택) 간단한 검증(토큰/HMAC 등) 추가
-- [ ] webhook 중복 처리 방지(dedup) 적용
-- [ ] README에 webhook 처리/검증/중복 방지 문서화
+- [x] 파트너 webhook 수신 엔드포인트 구현
+- [x] 토큰 검증 방식 추가
+- [x] webhook 중복 처리 방지 적용
+- [x] README에 webhook 처리/검증/중복 방지 문서화
+<details>
+  <summary><b>Webhook 수신 + 중복 방지</b></summary>
+  <div>
+    <h3>목표</h3>
+    <ul>
+      <li>파트너(PartnerA)가 주문 처리 결과(상태 변경)를 우리 시스템에 알리기 위해 Webhook을 호출합니다.</li>
+      <li>Webhook 수신 시 <code>orders.status</code>를 업데이트하여 파트너와 주문 상태를 동기화합니다.</li>
+      <li>같은 Webhook 이벤트가 여러 번 전달되어도(재전송/중복) 한 번만 처리하도록 중복 방지를 적용합니다.</li>
+      <li>간단한 토큰 검증으로 파트너 인증을 수행합니다.</li>
+    </ul>
+    <hr/>
+    <h3>1) PartnerA Webhook 엔드포인트</h3>
+    <ul>
+      <li><b>Method</b>: <code>POST</code></li>
+      <li><b>Path</b>: <code>/webhooks/partner-a/orders</code></li>
+    </ul>
+    <h4>Request Headers</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Header</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>X-Event-Id</code></td>
+          <td>O</td>
+          <td>Webhook 이벤트의 고유 ID (중복 방지 키)</td>
+        </tr>
+        <tr>
+          <td><code>X-Partner-Token</code></td>
+          <td>O</td>
+          <td>파트너 인증 토큰 (간단 검증 방식)</td>
+        </tr>
+      </tbody>
+    </table>
+    <h4>Request Body</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>orderId</code></td>
+          <td>number</td>
+          <td>O</td>
+          <td>우리 시스템 주문 ID (<code>orders.id</code>)</td>
+        </tr>
+        <tr>
+          <td><code>status</code></td>
+          <td>string</td>
+          <td>O</td>
+          <td>파트너가 통지하는 주문 상태 값</td>
+        </tr>
+      </tbody>
+    </table>
+    <h4>Example Request</h4>
+    <pre><code class="language-bash">curl -i -X POST http://localhost:8080/webhooks/partner-a/orders \
+-H "Content-Type: application/json" \
+-H "X-Event-Id: evt-100" \
+-H "X-Partner-Token: partner-a-secret" \
+-d '{"orderId": 1, "status": "ACCEPTED"}'</code></pre>
+    <hr/>
+    <h3>2) 토큰 검증 방식</h3>
+    <p>
+      Webhook 엔드포인트는 외부에서 호출 가능하므로, 무분별한 호출로 주문 상태가 변경되는 것을 막기 위해 임시로
+      <code>X-Partner-Token</code> 기반 검증을 적용했습니다.
+    </p>
+    <ul>
+      <li>요청의 <code>X-Partner-Token</code> 값이 서버 설정의 토큰과 일치하지 않으면 <code>401 Unauthorized</code>를 반환합니다.</li>
+      <li>토큰은 로컬에서 <code>.env</code>에 환경변수로 관리할 수 있도록 구성했습니다.</li>
+    </ul>
+    <h4>환경변수 예시</h4>
+    <pre><code class="language-bash"># .env
+PARTNER_A_WEBHOOK_TOKEN=partner-a-secret</code></pre>
+    <hr/>
+    <h3>3) 중복 방지 정책</h3>
+    <p>
+      파트너 시스템은 네트워크 장애/타임아웃 발생 시 동일 이벤트를 재전송할 수 있습니다.
+      따라서 <code>X-Event-Id</code>를 중복 방지 키로 사용하고, DB 레벨에서 <b>UNIQUE 제약</b>으로 중복 처리를 방지합니다.
+    </p>
+    <h4>중복 방지를 위한 저장 테이블: webhook_events</h4>
+    <ul>
+      <li><code>webhook_events.event_id</code>에 <b>UNIQUE 제약</b> 적용</li>
+      <li>새로운 <code>X-Event-Id</code>는 INSERT 성공 → 최초 이벤트로 처리</li>
+      <li>이미 존재하는 <code>X-Event-Id</code>는 INSERT 실패(Duplicate) → 중복 이벤트로 판단하고 종료</li>
+    </ul>
+    <hr/>
+    <h3>4) 처리 흐름</h3>
+    <ol>
+      <li>PartnerA가 Webhook 호출: <code>POST /webhooks/partner-a/orders</code></li>
+      <li>Controller에서 <code>X-Partner-Token</code> 검증 (불일치 시 401)</li>
+      <li>Service에서 <code>X-Event-Id</code>를 <code>webhook_events</code>에 INSERT 시도</li>
+      <li>INSERT 성공: 최초 이벤트 → 주문 상태 업데이트 수행</li>
+      <li>INSERT 실패(중복): 중복 이벤트 → 상태 업데이트 생략 후 종료</li>
+      <li>존재하지 않는 주문이면 404 반환</li>
+    </ol>
+    <hr/>
+    <h3>5) 응답 코드</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>When</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>200 OK</code></td>
+          <td>정상 처리 또는 중복 이벤트 처리</td>
+        </tr>
+        <tr>
+          <td><code>401 Unauthorized</code></td>
+          <td>토큰 검증 실패</td>
+        </tr>
+        <tr>
+          <td><code>404 Not Found</code></td>
+          <td>존재하지 않는 주문 ID</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
 
 ---
 
