@@ -42,7 +42,7 @@
 - [x] README에 Store API 문서화
 
 <details>
-  <summary><b>Store API</b></summary>
+  <summary><b>📝 Store API</b></summary>
   <div>
     <h3>매장 생성</h3>
     <ul>
@@ -103,7 +103,7 @@
 - [x] README에 멱등 정책 및 주문 API 문서화
 
 <details>
-  <summary><b>Idempotency 정책 (Idempotency-Key)</b></summary>
+  <summary><b>📝 Idempotency 정책 (Idempotency-Key)</b></summary>
   <div>
     <h3>요청 방식</h3>
     <ul>
@@ -141,7 +141,7 @@
 </details>
 
 <details>
-  <summary><b>Order API</b></summary>
+  <summary><b>📝 Order API</b></summary>
   <div>
     <h3>주문 생성</h3>
     <ul>
@@ -249,7 +249,7 @@
 - [x] README에 Outbox 패턴 및 흐름 문서화
 
 <details>
-  <summary><b>Outbox 패턴 적용</b></summary>
+  <summary><b>📝 Outbox 패턴 적용</b></summary>
   <div>
 
 <h3>목표</h3>
@@ -318,7 +318,7 @@
 
 
 <details>
-  <summary><b>Outbox 워커 + 전송 처리</b></summary>
+  <summary><b>📝 Outbox 워커 + 전송 처리</b></summary>
   <div>
 
 <h3>목표</h3>
@@ -370,7 +370,7 @@
 - [x] README에 파트너 계약(Contract) 및 Adapter 구조 문서화
 
 <details>
-  <summary><b>Partner Mock + Adapter 구조</b></summary>
+  <summary><b>📝 Partner Mock + Adapter 구조</b></summary>
   <div>
     <h3>목표</h3>
     <ul>
@@ -465,7 +465,7 @@
 - [x] webhook 중복 처리 방지 적용
 - [x] README에 webhook 처리/검증/중복 방지 문서화
 <details>
-  <summary><b>Webhook 수신 + 중복 방지</b></summary>
+  <summary><b>📝 Webhook 수신 + 중복 방지</b></summary>
   <div>
     <h3>목표</h3>
     <ul>
@@ -598,10 +598,100 @@ PARTNER_A_WEBHOOK_TOKEN=partner-a-secret</code></pre>
 
 ---
 
-### 재시도/백오프/DLQ + 운영 기능
+### 재시도/백오프/DLQ
 - [ ] 재시도 정책 고도화(백오프/최대 횟수)
 - [ ] DLQ(실패 적재) 설계/적용
-- [ ] 운영용 조회/재처리 API(또는 관리 방식) 추가
-- [ ] 로그/추적(correlation) 기반 운영 가이드 작성
+- [ ] 운영용 조회/재처리 API 추가
+
+<details>
+  <summary><b>📝 재시도/백오프/DLQ + 운영 기능</b></summary>
+  <div>
+    <h3>개요</h3>
+    <p>
+      Outbox 패턴은 이벤트를 DB(outbox_events)에 저장한 뒤, 별도의 워커(OutboxDispatcher)가 주기적으로 폴링하여
+      외부 시스템(파트너)으로 전송합니다. 이 과정에서 네트워크 장애, 파트너 응답 실패 등이 발생할 수 있으므로
+      <b>재시도 정책</b>, <b>백오프</b>, <b>DLQ(실패 적재)</b>, <b>운영용 조회/재처리</b> 기능이 필요합니다.
+    </p>
+    <hr />
+    <h3>1) 재시도 정책 고도화 (백오프 + 최대 횟수)</h3>
+    <ul>
+      <li>
+        OutboxDispatcher는 <code>PENDING</code> 상태의 이벤트를 주기적으로 조회하여 처리합니다.
+      </li>
+      <li>
+        전송 실패 시 <code>retry_count</code>를 증가시키고, 재시도 스케줄을 위해 <code>next_run_at</code>을 설정합니다.
+      </li>
+      <li>
+        최대 재시도 횟수(<code>MAX_RETRY_COUNT</code>)를 초과하면 이벤트는 <code>FAILED</code>로 전환되어 더 이상 자동 재시도되지 않습니다.
+      </li>
+    </ul>
+    <h4>상태/필드</h4>
+    <ul>
+      <li><code>status</code>: <b>PENDING</b> / <b>PROCESSED</b> / <b>FAILED</b></li>
+      <li><code>retry_count</code>: 재시도 횟수</li>
+      <li><code>next_run_at</code>: 다음 재시도 가능 시각 (백오프 적용)</li>
+      <li><code>last_error</code>: 최근 실패 원인(예외 메시지)</li>
+    </ul>
+    <h4>백오프 예시 정책</h4>
+    <p>재시도 횟수에 따라 다음 실행 지연 시간이 증가합니다.</p>
+    <ul>
+      <li>0회 → 5초</li>
+      <li>1회 → 15초</li>
+      <li>2회 → 30초</li>
+      <li>3회 → 60초</li>
+      <li>4회 이상 → 120초</li>
+    </ul>
+    <hr />
+    <h3>2) DLQ(실패 적재) 설계/적용</h3>
+    <p>
+      본 프로젝트에서는 별도의 DLQ 테이블/큐를 두지 않고,
+      <b>outbox_events의 status를 FAILED로 유지</b>하는 방식으로 DLQ를 구성합니다.
+    </p>
+    <ul>
+      <li>
+        <b>FAILED</b> 이벤트는 자동 재시도 대상에서 제외됩니다.
+      </li>
+      <li>
+        운영자는 Ops API를 통해 FAILED 이벤트를 확인하고 원인을 파악할 수 있습니다.
+      </li>
+      <li>
+        필요 시 강제로 <code>PENDING</code>으로 되돌려 재처리할 수 있습니다.
+      </li>
+    </ul>
+    <hr />
+    <h3>3) 운영용 조회/재처리 API</h3>
+    <p>
+      운영자는 Outbox 이벤트를 조회하고, 실패한 이벤트를 수동으로 재처리할 수 있습니다.
+      (관리자용 API로 가정)
+    </p>
+    <h4>✅ Outbox 이벤트 조회</h4>
+    <ul>
+      <li><b>Method</b>: <code>GET</code></li>
+      <li><b>Path</b>: <code>/ops/outbox</code></li>
+      <li><b>Query</b>:
+        <ul>
+          <li><code>status</code> (default: FAILED)</li>
+          <li><code>limit</code> (default: 50, max: 200)</li>
+        </ul>
+      </li>
+    </ul>
+    <pre><code class="language-bash">curl -i "http://localhost:8080/ops/outbox?status=FAILED&amp;limit=50"</code></pre>
+    <h4>✅ Outbox 이벤트 강제 재처리</h4>
+    <ul>
+      <li><b>Method</b>: <code>POST</code></li>
+      <li><b>Path</b>: <code>/ops/outbox/{id}/retry</code></li>
+      <li><b>Description</b>: 특정 outbox 이벤트를 <code>PENDING</code>으로 되돌려 즉시 재처리 대상으로 등록합니다.</li>
+    </ul>
+    <pre><code class="language-bash">curl -i -X POST "http://localhost:8080/ops/outbox/10/retry"</code></pre>
+    <h4>재처리 동작</h4>
+    <ul>
+      <li><code>status</code> → <b>PENDING</b></li>
+      <li><code>next_run_at</code> → <b>NOW()</b></li>
+      <li><code>processed_at</code> → <b>NULL</b></li>
+    </ul>
+    <hr />
+  </div>
+</details>
+
 
 
