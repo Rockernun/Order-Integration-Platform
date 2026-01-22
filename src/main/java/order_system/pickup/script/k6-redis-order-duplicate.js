@@ -31,6 +31,4 @@ export default function () {
     check(res, {
         "status is 201 or 200": (r) => r.status === 201 || r.status === 200,
     });
-
-    sleep(0.1);
 }
