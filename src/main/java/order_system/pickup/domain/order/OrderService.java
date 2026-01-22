@@ -90,6 +90,11 @@ public class OrderService {
         }
     }
 
+    public OrderResponse getOrder(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    }
+
     private Optional<Long> waitUntilDone(String key, int maxAttempts, long sleepMillis) {
         for (int i = 0; i < maxAttempts; i++) {
             Optional<Long> done = idempotencyRedisService.findDoneOrderId(key);
