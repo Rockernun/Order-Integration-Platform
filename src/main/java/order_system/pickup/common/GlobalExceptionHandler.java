@@ -5,6 +5,7 @@ import order_system.pickup.domain.order.exception.IdempotencyKeyInconsistentStat
 import order_system.pickup.domain.order.exception.IdempotencyKeyMissingException;
 import order_system.pickup.domain.order.exception.OrderNotFoundException;
 import order_system.pickup.domain.store.exception.StoreNotFoundException;
+import order_system.pickup.idempotency.exception.IdempotencyInProgressException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -39,6 +40,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Map<String, Object> handleIdempotencyInconsistentState(IdempotencyKeyInconsistentStateException e) {
         return Map.of("code", "IDEMPOTENCY_KEY_INCONSISTENT_STATE", "message", e.getMessage());
+    }
+
+    @ExceptionHandler(IdempotencyInProgressException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, Object> handleIdempotencyInProgress(IdempotencyInProgressException e) {
+        return Map.of("code", "IDEMPOTENCY_IN_PROGRESS", "message", e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
