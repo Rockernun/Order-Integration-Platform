@@ -1,0 +1,111 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: k6-redis-order-normal.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 50s max duration (incl. graceful stop):
+              * default: 100 looping VUs for 20s (gracefulStop: 30s)
+
+
+running (01.0s), 100/100 VUs, 825 complete and 0 interrupted iterations
+default   [   5% ] 100 VUs  01.0s/20s
+
+running (02.0s), 100/100 VUs, 1790 complete and 0 interrupted iterations
+default   [  10% ] 100 VUs  02.0s/20s
+
+running (03.0s), 100/100 VUs, 2721 complete and 0 interrupted iterations
+default   [  15% ] 100 VUs  03.0s/20s
+
+running (04.0s), 100/100 VUs, 3689 complete and 0 interrupted iterations
+default   [  20% ] 100 VUs  04.0s/20s
+
+running (05.0s), 100/100 VUs, 4627 complete and 0 interrupted iterations
+default   [  25% ] 100 VUs  05.0s/20s
+
+running (06.0s), 100/100 VUs, 5590 complete and 0 interrupted iterations
+default   [  30% ] 100 VUs  06.0s/20s
+
+running (07.0s), 100/100 VUs, 6531 complete and 0 interrupted iterations
+default   [  35% ] 100 VUs  07.0s/20s
+
+running (08.0s), 100/100 VUs, 7490 complete and 0 interrupted iterations
+default   [  40% ] 100 VUs  08.0s/20s
+
+running (09.0s), 100/100 VUs, 8439 complete and 0 interrupted iterations
+default   [  45% ] 100 VUs  09.0s/20s
+
+running (10.0s), 100/100 VUs, 9394 complete and 0 interrupted iterations
+default   [  50% ] 100 VUs  10.0s/20s
+
+running (11.0s), 100/100 VUs, 10345 complete and 0 interrupted iterations
+default   [  55% ] 100 VUs  11.0s/20s
+
+running (11.9s), 100/100 VUs, 11227 complete and 0 interrupted iterations
+default   [  60% ] 100 VUs  11.9s/20s
+
+running (12.0s), 100/100 VUs, 11273 complete and 0 interrupted iterations
+default   [  60% ] 100 VUs  12.0s/20s
+
+running (13.0s), 100/100 VUs, 12243 complete and 0 interrupted iterations
+default   [  65% ] 100 VUs  13.0s/20s
+
+running (14.0s), 100/100 VUs, 13151 complete and 0 interrupted iterations
+default   [  70% ] 100 VUs  14.0s/20s
+
+running (14.1s), 100/100 VUs, 13282 complete and 0 interrupted iterations
+default   [  71% ] 100 VUs  14.1s/20s
+
+running (15.0s), 100/100 VUs, 14116 complete and 0 interrupted iterations
+default   [  75% ] 100 VUs  15.0s/20s
+
+running (16.0s), 100/100 VUs, 15051 complete and 0 interrupted iterations
+default   [  80% ] 100 VUs  16.0s/20s
+
+running (17.0s), 100/100 VUs, 15994 complete and 0 interrupted iterations
+default   [  85% ] 100 VUs  17.0s/20s
+
+running (18.0s), 100/100 VUs, 16951 complete and 0 interrupted iterations
+default   [  90% ] 100 VUs  18.0s/20s
+
+running (19.0s), 100/100 VUs, 17872 complete and 0 interrupted iterations
+default   [  95% ] 100 VUs  19.0s/20s
+
+running (20.0s), 100/100 VUs, 18851 complete and 0 interrupted iterations
+default   [ 100% ] 100 VUs  20.0s/20s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 18951   943.189775/s
+    checks_succeeded...: 100.00% 18951 out of 18951
+    checks_failed......: 0.00%   0 out of 18951
+
+    ✓ status is 201 or 200
+
+    HTTP
+    http_req_duration..............: avg=5.7ms    min=1.7ms    med=5.04ms   max=77.63ms  p(90)=7.66ms   p(95)=9.32ms  
+      { expected_response:true }...: avg=5.7ms    min=1.7ms    med=5.04ms   max=77.63ms  p(90)=7.66ms   p(95)=9.32ms  
+    http_req_failed................: 0.00%  0 out of 18951
+    http_reqs......................: 18951  943.189775/s
+
+    EXECUTION
+    iteration_duration.............: avg=105.85ms min=101.83ms med=105.19ms max=181.22ms p(90)=107.79ms p(95)=109.47ms
+    iterations.....................: 18951  943.189775/s
+    vus............................: 100    min=100        max=100
+    vus_max........................: 100    min=100        max=100
+
+    NETWORK
+    data_received..................: 4.2 MB 209 kB/s
+    data_sent......................: 4.2 MB 209 kB/s
+
+
+
+
+running (20.1s), 000/100 VUs, 18951 complete and 0 interrupted iterations
+default ✓ [ 100% ] 100 VUs  20s
