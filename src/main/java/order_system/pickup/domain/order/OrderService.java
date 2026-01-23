@@ -1,5 +1,7 @@
 package order_system.pickup.domain.order;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.Optional;
 import order_system.pickup.domain.order.dto.OrderCreateRequest;
@@ -23,39 +25,36 @@ public class OrderService {
     private final StoreRepository storeRepository;
     private final OrderRepository orderRepository;
     private final IdempotencyRedisService idempotencyRedisService;
+    private final ObjectMapper objectMapper;
 
     public OrderService(StoreRepository storeRepository, OrderRepository orderRepository,
-                        IdempotencyRedisService idempotencyRedisService) {
+                        IdempotencyRedisService idempotencyRedisService,
+                        ObjectMapper objectMapper) {
         this.storeRepository = storeRepository;
         this.orderRepository = orderRepository;
         this.idempotencyRedisService = idempotencyRedisService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
     public OrderResponse createOrder(OrderCreateRequest req, String idempotencyKey) {
         validateIdempotencyKey(idempotencyKey);
 
-        Optional<Long> doneOrderId = idempotencyRedisService.findDoneOrderId(idempotencyKey);
-        if (doneOrderId.isPresent()) {
-            return orderRepository.findById(doneOrderId.get())
-                    .orElseThrow(() -> new OrderNotFoundException(doneOrderId.get()));
+        Optional<OrderResponse> cached = findCachedDoneResponse(idempotencyKey);
+        if (cached.isPresent()) {
+            return cached.get();
         }
 
-        boolean acquiredRedisKey = idempotencyRedisService.tryAcquire(idempotencyKey, IN_PROGRESS_TTL);
+        // Redis 락 선점
+        boolean acquired = idempotencyRedisService.tryAcquire(idempotencyKey, IN_PROGRESS_TTL);
 
-        if (!acquiredRedisKey) {
-            Optional<Long> maybeDone = waitUntilDone(idempotencyKey, 10, 20);
-            if (maybeDone.isPresent()) {
-                return orderRepository.findById(maybeDone.get())
-                        .orElseThrow(() -> new OrderNotFoundException(maybeDone.get()));
+        if (!acquired) {  // 락 선점 실패 시
+            Optional<OrderResponse> cachedAgain = findCachedDoneResponse(idempotencyKey);
+            if (cachedAgain.isPresent()) {
+                return cachedAgain.get();
             }
 
-            var existing = orderRepository.findByIdempotencyKey(idempotencyKey);
-            if (existing.isPresent()) {
-                idempotencyRedisService.markDone(idempotencyKey, existing.get().id(), DONE_TTL);
-                return existing.get();
-            }
-
+            // 바로 409 에러를 반환
             throw new IdempotencyInProgressException(idempotencyKey);
         }
 
@@ -69,20 +68,19 @@ public class OrderService {
             try {
                 orderId = orderRepository.save(req, idempotencyKey);
             } catch (DuplicateKeyException e) {
-                return orderRepository.findByIdempotencyKey(idempotencyKey)
-                        .map(order -> {
-                            idempotencyRedisService.markDone(idempotencyKey, order.id(), DONE_TTL);
-                            return order;
-                        })
+                OrderResponse existing = orderRepository.findByIdempotencyKey(idempotencyKey)
                         .orElseThrow(() -> new IllegalStateException(
                                 "멱등키 중복이 감지되었지만 기존 주문 조회에 실패했습니다: " + idempotencyKey, e
                         ));
+
+                cacheDoneResponse(idempotencyKey, existing);
+                return existing;
             }
 
             OrderResponse created = orderRepository.findById(orderId)
                     .orElseThrow(() -> new OrderNotFoundException(orderId));
+            cacheDoneResponse(idempotencyKey, created);
 
-            idempotencyRedisService.markDone(idempotencyKey, orderId, DONE_TTL);
             return created;
         } catch (RuntimeException e) {
             idempotencyRedisService.releaseIfInProgress(idempotencyKey);
@@ -95,21 +93,24 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 
-    private Optional<Long> waitUntilDone(String key, int maxAttempts, long sleepMillis) {
-        for (int i = 0; i < maxAttempts; i++) {
-            Optional<Long> done = idempotencyRedisService.findDoneOrderId(key);
-            if (done.isPresent()) {
-                return done;
-            }
+    private Optional<OrderResponse> findCachedDoneResponse(String idempotencyKey) {
+        return idempotencyRedisService.findDoneResponseJson(idempotencyKey)
+                .flatMap(json -> {
+                    try {
+                        return Optional.of(objectMapper.readValue(json, OrderResponse.class));
+                    } catch (Exception e) {
+                        return Optional.empty();
+                    }
+                });
+    }
 
-            try {
-                Thread.sleep(sleepMillis);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return Optional.empty();
-            }
+    private void cacheDoneResponse(String idempotencyKey, OrderResponse response) {
+        try {
+            String json = objectMapper.writeValueAsString(response);
+            idempotencyRedisService.markDoneResponse(idempotencyKey, json, DONE_TTL);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("DONE 응답 캐싱에 실패했습니다.", e);
         }
-        return Optional.empty();
     }
 
     private void validateIdempotencyKey(String idempotencyKey) {

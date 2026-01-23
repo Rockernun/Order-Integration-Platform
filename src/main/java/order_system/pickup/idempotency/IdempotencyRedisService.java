@@ -38,20 +38,14 @@ public class IdempotencyRedisService {
      * 정상적으로 처리된 주문이 있는지 확인
      * DONE:<OrderId> 형태면 orderId를 반환
      */
-    public Optional<Long> findDoneOrderId(String idempotencyKey) {
-        String redisKey = toRedisKey(idempotencyKey);
-        String value = getValue(redisKey);
-
+    public Optional<String> findDoneResponseJson(String idempotencyKey) {
+        String value = getValue(toRedisKey(idempotencyKey));
         if (value == null) {
             return Optional.empty();
         }
 
         if (value.startsWith(DONE + ":")) {
-            try {
-                return Optional.of(Long.parseLong(value.substring(DONE.length() + 1)));
-            } catch (NumberFormatException e) {
-                return Optional.empty();
-            }
+            return Optional.of(value.substring((DONE + ":").length()));
         }
         return Optional.empty();
     }
@@ -59,9 +53,9 @@ public class IdempotencyRedisService {
     /**
      * 주문을 정상적으로 생성하고 나서 결과를 저장
      */
-    public void markDone(String idempotencyKey, Long orderId, Duration ttl) {
+    public void markDoneResponse(String idempotencyKey, String responseJson, Duration ttl) {
         String redisKey = toRedisKey(idempotencyKey);
-        String value = DONE + ":" + orderId;
+        String value = DONE + ":" + responseJson;
 
         redisTemplate.opsForValue().set(redisKey, value, ttl);
     }
