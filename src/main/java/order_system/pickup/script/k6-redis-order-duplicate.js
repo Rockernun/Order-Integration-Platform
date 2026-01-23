@@ -1,21 +1,19 @@
 import http from "k6/http";
-import { check, sleep } from "k6";
+import { check } from "k6";
 
 export const options = {
-    vus: __ENV.VUS ? parseInt(__ENV.VUS) : 100,
-    duration: __ENV.DURATION || "20s",
+    vus: 100,
+    duration: "20s",
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:8080";
-const STORE_ID = __ENV.STORE_ID ? parseInt(__ENV.STORE_ID) : 1;
+const BASE_URL = "http://127.0.0.1:8080";
+const url = `${BASE_URL}/api/orders`;
 
-const IDEMPOTENCY_KEY = __ENV.KEY || "hotkey-001";
+const IDEMPOTENCY_KEY = "fixed-key-duplicate-001";
 
 export default function () {
-    const url = `${BASE_URL}/api/orders`;
-
     const payload = JSON.stringify({
-        storeId: STORE_ID,
+        storeId: 2,
         totalPrice: 1000,
     });
 
