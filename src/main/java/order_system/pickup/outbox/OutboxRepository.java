@@ -124,7 +124,7 @@ public class OutboxRepository {
         SET status = 'PENDING',
             retry_count = ?,
             next_run_at = ?,
-            last_error = ?
+            last_error = ?,
             locked_by = NULL,
             locked_at = NULL
         WHERE id = ?
@@ -142,20 +142,25 @@ public class OutboxRepository {
         );
     }
 
-    public int markFailed(Long id, String workerId, String lastError) {
+    public int markFailed(Long id, String workerId, int nextRetryCount, String lastError) {
         String sql = """
         UPDATE outbox_events
         SET status = 'FAILED',
             retry_count = ?,
             processed_at = CURRENT_TIMESTAMP,
-            lcoked_by = NULL,
+            last_error = ?,
+            locked_by = NULL,
             locked_at = NULL
         WHERE id = ?
             AND status = 'PROCESSING'
             AND locked_by = ?
         """;
 
-        return jdbcTemplate.update(sql, truncate(lastError, 500), id, workerId);
+        return jdbcTemplate.update(sql,
+                nextRetryCount,
+                truncate(lastError, 500),
+                id,
+                workerId);
     }
 
     public List<OutboxEvent> findByStatus(String status, int limit) {

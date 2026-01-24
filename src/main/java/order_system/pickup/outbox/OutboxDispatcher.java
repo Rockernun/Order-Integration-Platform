@@ -77,7 +77,7 @@ public class OutboxDispatcher {
         String reason = e.getClass().getSimpleName() + ": " + e.getMessage();
 
         if (toFailed) {
-            int updated = outboxRepository.markFailed(event.id(), workerId, reason);
+            int updated = outboxRepository.markFailed(event.id(), workerId, nextRetry, reason);
             log.warn("outbox 실패 → FAILED(DLQ): id={}, retry={}, updated={}, reason={}",
                     event.id(), nextRetry, updated, reason, e);
             return;
