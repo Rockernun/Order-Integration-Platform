@@ -1,10 +1,15 @@
 package order_system.pickup.outbox;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import order_system.pickup.outbox.constant.AggregateType;
+import order_system.pickup.outbox.constant.OutboxEventType;
+import order_system.pickup.outbox.dto.OrderCreatedEventPayload;
 import order_system.pickup.outbox.dto.OutboxEvent;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -14,9 +19,11 @@ import org.springframework.stereotype.Repository;
 public class OutboxRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
 
-    public OutboxRepository(JdbcTemplate jdbcTemplate) {
+    public OutboxRepository(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
     }
 
     private static final RowMapper<OutboxEvent> OUTBOX_ROW_MAPPER = (rs, rowNum) -> new OutboxEvent(
@@ -31,6 +38,18 @@ public class OutboxRepository {
             rs.getString("last_error"),
             rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant() : null
     );
+
+    public void saveOrderCreated(OrderCreatedEventPayload payload) {
+        String sql = "INSERT INTO outbox_events(event_type, aggregate_type, aggregate_id, payload) VALUES (?, ?, ?, CAST(? AS JSON))";
+
+        jdbcTemplate.update(
+                sql,
+                OutboxEventType.ORDER_CREATED,
+                AggregateType.ORDER,
+                payload.orderId(),
+                toJson(payload)
+        );
+    }
 
     public List<OutboxEvent> findAndLockPending(int limit, String workerId) {
         String sql = """
@@ -199,5 +218,13 @@ public class OutboxRepository {
         }
 
         return s.length() <= maxLength ? s : s.substring(0, maxLength);
+    }
+
+    private String toJson(OrderCreatedEventPayload payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox payload 직렬화 실패", e);
+        }
     }
 }
