@@ -1,12 +1,10 @@
 package order_system.pickup.outbox;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import order_system.pickup.domain.order.OrderRepository;
-import order_system.pickup.domain.store.StoreRepository;
-import order_system.pickup.outbox.constant.OutboxEventType;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import order_system.pickup.outbox.dto.OutboxEvent;
-import order_system.pickup.partner.adapter.PartnerAAdapter;
-import order_system.pickup.partner.client.PartnerAClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,143 +15,100 @@ public class OutboxDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxDispatcher.class);
 
-    private static final int BATCH_SIZE = 10;
-    private static final int MAX_RETRY_COUNT = 5;
-
+    private static final int BATCH_SIZE = 50;
+    private static final int MAX_RETRY_ATTEMPTS = 5;
+    private static final Duration PROCESSING_TIMEOUT = Duration.ofMinutes(2);
     private final OutboxRepository outboxRepository;
-    private final ObjectMapper objectMapper;
-    private final OrderRepository orderRepository;
-    private final StoreRepository storeRepository;
-    private final PartnerAClient partnerAClient;
-    private final PartnerAAdapter partnerAAdapter;
 
-    public OutboxDispatcher(OutboxRepository outboxRepository, ObjectMapper objectMapper,
-                            OrderRepository orderRepository, StoreRepository storeRepository,
-                            PartnerAClient partnerAClient, PartnerAAdapter partnerAAdapter) {
+    private final String workerId = "worker:" + UUID.randomUUID();
+
+    public OutboxDispatcher(OutboxRepository outboxRepository) {
         this.outboxRepository = outboxRepository;
-        this.objectMapper = objectMapper;
-        this.orderRepository = orderRepository;
-        this.storeRepository = storeRepository;
-        this.partnerAClient = partnerAClient;
-        this.partnerAAdapter = partnerAAdapter;
     }
 
-    @Scheduled(fixedDelay = 5000)
+    @Scheduled(fixedDelay = 1000)
     public void dispatch() {
-        var events = outboxRepository.findPending(BATCH_SIZE);
+        List<OutboxEvent> events = outboxRepository.findAndLockPending(BATCH_SIZE, workerId);
+
         if (events.isEmpty()) {
             return;
         }
 
-        log.info("Outbox 디스패처 실행: size={}", events.size());
+        log.info("Outbox 디스패처 실행: size={}, workerId={}", events.size(), workerId);
 
         for (OutboxEvent event : events) {
             try {
                 handle(event);
-                int updated = outboxRepository.markProcessed(event.id());
 
-                if (updated == 1) {
-                    log.info("outbox가 처리되었습니다: id={}, type={}, aggId={}",
-                            event.id(), event.eventType(), event.aggregateId());
-                } else {
-                    log.info("outbox가 이미 처리된 상태거나 PENDING이 아닙니다: id={}", event.id());
+                int updated = outboxRepository.markProcessed(event.id(), workerId);
+                if (updated == 0) {
+                    log.warn("markProcessed 실패: id={}, workerId={}", event.id(), workerId);
                 }
             } catch (Exception e) {
-                int nextRetry = event.retryCount() + 1;
-                boolean toFailed = nextRetry >= MAX_RETRY_COUNT;
-
-                outboxRepository.markFailedOrRetry(event.id(), nextRetry, toFailed);
-
-                log.warn("outbox 실패: id={}, retry={}, toFailed={}, reason={}",
-                        event.id(), nextRetry, toFailed, e.toString(), e);
+                onFailure(event, e);
             }
         }
     }
 
-    private void handleFailureWithBackoff(OutboxEvent event, Exception e) {
-        int nextRetry = event.retryCount() + 1;
-        String lastError = safeErrorMessage(e);
+    @Scheduled(fixedDelay = 30000)
+    public void recoverStuck() {
+        int recovered = outboxRepository.recoverStuckProcessing(PROCESSING_TIMEOUT);
+        if (recovered > 0) {
+            log.warn("stuck PROCESSING 복구: recovered={}", recovered);
+        }
+    }
 
-        if (nextRetry > MAX_RETRY_COUNT) {
-            outboxRepository.markFailed(event.id(), nextRetry, lastError);
+    private void handle(OutboxEvent event) {
+        String eventType = event.eventType();
 
-            log.warn("outbox DLQ(FAILED) 전환: id={}, type={}, retry={}, reason={}",
-                    event.id(), event.eventType(), nextRetry, lastError, e);
+        if ("ORDER_CREATED".equals(eventType)) {
+            // TODO: 향후에 실제 파트너 어댑터 혹은 클라이언트 호출
+            log.debug("Handle ORDER_CREATED: id={}, aggregateId={}", event.id(), event.aggregateId());
             return;
         }
 
-        int delaySeconds = nextDelaySeconds(event.retryCount());
-
-        outboxRepository.markRetry(event.id(), nextRetry, delaySeconds, lastError);
-
-        log.warn("outbox 재시도 예약: id={}, type={}, retry={}, delay={}s, reason={}",
-                event.id(), event.eventType(), nextRetry, delaySeconds, lastError, e);
+        throw new IllegalArgumentException("알 수 없는 이벤트 타입입니다. " + eventType);
     }
 
-    private int nextDelaySeconds(int retryCount) {
-        if (retryCount == 0) {
-            return 5;
+    private void onFailure(OutboxEvent event, Exception e) {
+        int nextRetry = event.retryCount() + 1;
+
+        boolean toFailed = nextRetry > MAX_RETRY_ATTEMPTS;
+        String reason = e.getClass().getSimpleName() + ": " + e.getMessage();
+
+        if (toFailed) {
+            int updated = outboxRepository.markFailed(event.id(), workerId, reason);
+            log.warn("outbox 실패 → FAILED(DLQ): id={}, retry={}, updated={}, reason={}",
+                    event.id(), nextRetry, updated, reason, e);
+            return;
         }
 
+        Instant nextRunAt = Instant.now().plusSeconds(backoffTime(nextRetry));
+        int updated = outboxRepository.markRetry(event.id(), workerId, nextRetry, nextRunAt, reason);
+
+        log.warn("outbox 실패 → 재시도 예약: id={}, retry={}, nextRunAt={}, updated={}, reason={}",
+                event.id(), nextRetry, nextRunAt, updated, reason, e);
+    }
+
+    private long backoffTime(int retryCount) {
+        long backoffSeconds = 120;
+
         if (retryCount == 1) {
-            return 15;
+            backoffSeconds = 5;
         }
 
         if (retryCount == 2) {
-            return 30;
+            backoffSeconds = 15;
         }
 
         if (retryCount == 3) {
-            return 60;
+            backoffSeconds = 30;
         }
 
-        return 120;
-    }
-
-    private String safeErrorMessage(Exception e) {
-        String msg = e.getMessage();
-        if (msg == null || msg.isBlank()) {
-            msg = e.getClass().getSimpleName();
+        if (retryCount == 4) {
+            backoffSeconds = 60;
         }
 
-        int maxLen = 500;
-        if (msg.length() > maxLen) {
-            return msg.substring(0, maxLen);
-        }
-        return msg;
-    }
-
-    private void handle(OutboxEvent event) throws Exception {
-        if ("ORDER_CREATED".equals(event.eventType())) {
-            Long orderId = event.aggregateId();
-
-            var order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new IllegalStateException("ORDER_CREATED인데 주문이 없습니다. orderId=" + orderId));
-            var store = storeRepository.findById(order.storeId())
-                    .orElseThrow(() -> new IllegalStateException("주문은 있는데 매장이 없습니다. storeId=" + order.storeId()));
-
-            String partner = store.partner();
-            if (partner == null || partner.isBlank()) {
-                return;
-            }
-
-            if ("PartnerA".equalsIgnoreCase(partner)) {
-                var req = partnerAAdapter.toPartnerA(order, store);
-
-                boolean forceFail = false;
-                partnerAClient.sendOrder(req, forceFail);
-                return;
-            }
-
-            throw new IllegalArgumentException("지원하지 않는 partner=" + partner + " (storeId=" + store.id() + ")");
-        }
-
-        if (OutboxEventType.ORDER_CREATED.equals(event.eventType())) {
-            var json = objectMapper.readTree(event.payload());
-            log.info("mock handle ORDER_CREATED: payload={}", json.toString());
-            return;
-        }
-
-        throw new IllegalArgumentException("알 수 없는 이벤트 타입입니다. " + event.eventType());
+        return backoffSeconds;
     }
 }
