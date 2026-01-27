@@ -1,0 +1,105 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: k6-order-bulk.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 300 max VUs, 50s max duration (incl. graceful stop):
+              * default: 300 looping VUs for 20s (gracefulStop: 30s)
+
+
+running (01.0s), 300/300 VUs, 0 complete and 0 interrupted iterations
+default   [   5% ] 300 VUs  01.0s/20s
+
+running (02.0s), 300/300 VUs, 299 complete and 0 interrupted iterations
+default   [  10% ] 300 VUs  02.0s/20s
+
+running (03.0s), 300/300 VUs, 316 complete and 0 interrupted iterations
+default   [  15% ] 300 VUs  03.0s/20s
+
+running (04.0s), 300/300 VUs, 600 complete and 0 interrupted iterations
+default   [  20% ] 300 VUs  04.0s/20s
+
+running (05.0s), 300/300 VUs, 805 complete and 0 interrupted iterations
+default   [  25% ] 300 VUs  05.0s/20s
+
+running (06.0s), 300/300 VUs, 907 complete and 0 interrupted iterations
+default   [  30% ] 300 VUs  06.0s/20s
+
+running (07.0s), 300/300 VUs, 1193 complete and 0 interrupted iterations
+default   [  35% ] 300 VUs  07.0s/20s
+
+running (08.0s), 300/300 VUs, 1305 complete and 0 interrupted iterations
+default   [  40% ] 300 VUs  08.0s/20s
+
+running (09.0s), 300/300 VUs, 1503 complete and 0 interrupted iterations
+default   [  45% ] 300 VUs  09.0s/20s
+
+running (10.0s), 300/300 VUs, 1762 complete and 0 interrupted iterations
+default   [  50% ] 300 VUs  10.0s/20s
+
+running (11.0s), 300/300 VUs, 1871 complete and 0 interrupted iterations
+default   [  55% ] 300 VUs  11.0s/20s
+
+running (12.0s), 300/300 VUs, 2100 complete and 0 interrupted iterations
+default   [  60% ] 300 VUs  12.0s/20s
+
+running (13.0s), 300/300 VUs, 2337 complete and 0 interrupted iterations
+default   [  65% ] 300 VUs  13.0s/20s
+
+running (14.0s), 300/300 VUs, 2454 complete and 0 interrupted iterations
+default   [  70% ] 300 VUs  14.0s/20s
+
+running (15.0s), 300/300 VUs, 2687 complete and 0 interrupted iterations
+default   [  75% ] 300 VUs  15.0s/20s
+
+running (16.0s), 300/300 VUs, 2866 complete and 0 interrupted iterations
+default   [  80% ] 300 VUs  16.0s/20s
+
+running (17.0s), 300/300 VUs, 3027 complete and 0 interrupted iterations
+default   [  85% ] 300 VUs  17.0s/20s
+
+running (18.0s), 300/300 VUs, 3271 complete and 0 interrupted iterations
+default   [  90% ] 300 VUs  18.0s/20s
+
+running (19.0s), 300/300 VUs, 3422 complete and 0 interrupted iterations
+default   [  95% ] 300 VUs  19.0s/20s
+
+running (20.0s), 300/300 VUs, 3613 complete and 0 interrupted iterations
+default   [ 100% ] 300 VUs  20.0s/20s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 39150   1885.736506/s
+    checks_succeeded...: 100.00% 39150 out of 39150
+    checks_failed......: 0.00%   0 out of 39150
+
+    ✓ status is 201 or 200
+
+    HTTP
+    http_req_duration..............: avg=157ms min=4.67ms   med=157.08ms max=506.59ms p(90)=173.35ms p(95)=248.45ms
+      { expected_response:true }...: avg=157ms min=4.67ms   med=157.08ms max=506.59ms p(90)=173.35ms p(95)=248.45ms
+    http_req_failed................: 0.00%  0 out of 39150
+    http_reqs......................: 39150  1885.736506/s
+
+    EXECUTION
+    iteration_duration.............: avg=1.57s min=767.74ms med=1.57s    max=2.2s     p(90)=1.73s    p(95)=1.78s   
+    iterations.....................: 3915   188.573651/s
+    vus............................: 300    min=300        max=300
+    vus_max........................: 300    min=300        max=300
+
+    NETWORK
+    data_received..................: 8.6 MB 417 kB/s
+    data_sent......................: 7.8 MB 375 kB/s
+
+
+
+
+running (20.8s), 000/300 VUs, 3915 complete and 0 interrupted iterations
+default ✓ [ 100% ] 300 VUs  20s
