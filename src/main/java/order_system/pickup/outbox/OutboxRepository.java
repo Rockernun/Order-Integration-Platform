@@ -51,6 +51,32 @@ public class OutboxRepository {
         );
     }
 
+    public int claimPending(int limit, String workerId) {
+        String sql = """
+        UPDATE outbox_events
+        SET status='PROCESSING',
+            locked_by=?,
+            locked_at=CURRENT_TIMESTAMP
+        WHERE status='PENDING'
+          AND (next_run_at IS NULL OR next_run_at <= CURRENT_TIMESTAMP)
+        ORDER BY id
+        LIMIT ?
+        """;
+        return jdbcTemplate.update(sql, workerId, limit);
+    }
+
+    public List<OutboxEvent> findClaimed(int limit, String workerId) {
+        String sql = """
+        SELECT id, event_type, aggregate_type, aggregate_id, payload, status,
+               retry_count, next_run_at, last_error, created_at
+        FROM outbox_events
+        WHERE status='PROCESSING' AND locked_by=?
+        ORDER BY id
+        LIMIT ?
+        """;
+        return jdbcTemplate.query(sql, OUTBOX_ROW_MAPPER, workerId, limit);
+    }
+
     public List<OutboxEvent> findAndLockPending(int limit, String workerId) {
         String sql = """
         SELECT id, event_type, aggregate_type, aggregate_id, payload, status,

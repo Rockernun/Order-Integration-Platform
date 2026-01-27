@@ -28,13 +28,13 @@ public class OutboxDispatcher {
 
     @Scheduled(fixedDelay = 1000)
     public void dispatch() {
-        List<OutboxEvent> events = outboxRepository.findAndLockPending(BATCH_SIZE, workerId);
-
-        if (events.isEmpty()) {
+        int claimed = outboxRepository.claimPending(BATCH_SIZE, workerId);
+        if (claimed == 0) {
             return;
         }
 
-        log.info("Outbox 디스패처 실행: size={}, workerId={}", events.size(), workerId);
+        List<OutboxEvent> events = outboxRepository.findAndLockPending(BATCH_SIZE, workerId);
+        log.info("Outbox 디스패처 실행: claimed={}, fetched={}, workerId={}", claimed, events.size(), workerId);
 
         for (OutboxEvent event : events) {
             try {
