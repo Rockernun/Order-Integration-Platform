@@ -1,10 +1,15 @@
 package order_system.pickup.outbox;
 
+import static org.flywaydb.core.internal.util.JsonUtils.toJson;
+
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import order_system.pickup.outbox.constant.AggregateType;
+import order_system.pickup.outbox.constant.OutboxEventType;
+import order_system.pickup.outbox.dto.OrderCreatedEventPayload;
 import order_system.pickup.outbox.dto.OutboxEvent;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -31,6 +36,18 @@ public class OutboxRepository {
             rs.getString("last_error"),
             rs.getTimestamp("created_at") != null ? rs.getTimestamp("created_at").toInstant() : null
     );
+
+    public void saveOrderCreated(OrderCreatedEventPayload payload) {
+        String sql = "INSERT INTO outbox_events(event_type, aggregate_type, aggregate_id, payload) VALUES (?, ?, ?, CAST(? AS JSON))";
+
+        jdbcTemplate.update(
+                sql,
+                OutboxEventType.ORDER_CREATED,
+                AggregateType.ORDER,
+                payload.orderId(),
+                toJson(payload)
+        );
+    }
 
     public List<OutboxEvent> findAndLockPending(int limit, String workerId) {
         String sql = """
