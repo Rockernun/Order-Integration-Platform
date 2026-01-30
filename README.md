@@ -772,6 +772,23 @@ DB Unique 기반 멱등 처리만으로도 안정성과 단순성을 충분히 �
 - 애플리케이션 인스턴스가 여러 대인 분산 환경
 - DB 부하를 줄이기 위해 중복 처리 응답을 Redis에서 캐싱하고 빠르게 반환해야 하는 경우
 
+---
 
+### 성능 개선 요약 (Outbox 폴링 최적화)
 
+### 1) 문제
+Outbox Dispatcher의 폴링 쿼리(findAndLockPending)는 아래 조건으로 지금 처리 가능한 이벤트를 **id 오름차순으로 50개** 가져오고 있다.
 
+- `status='PENDING'`
+- `next_run_at IS NULL OR next_run_at <= NOW()`
+- `ORDER BY id LIMIT 50`
+
+인덱스가 없으면 이러한 이벤트가 테이블 뒤쪽(id가 큰 쪽)에 몰려 있는 상황에서  
+50개를 찾기 위해 PK(=PRIMARY) 스캔으로 수십만 ~ 수백만 행을 스캔하는 일이 발생한다.
+
+### 2) 해결
+폴링 패턴에 맞춘 복합 인덱스를 추가해, 조건 필터링 + 정렬/limit을 인덱스에서 처리하도록 유도했다. 측정 결과 인덱스 도입 전의 걸린 시간 평균 340ms에서 인덱스 도입 후 0.09ms로 대폭 줄일 수 있었다.
+
+```sql
+CREATE INDEX idx_outbox_pending_pick
+ON outbox_events (status, next_run_at, id);
