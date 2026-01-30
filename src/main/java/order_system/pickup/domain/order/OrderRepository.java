@@ -5,6 +5,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import order_system.pickup.domain.order.dto.OrderCreateRequest;
 import order_system.pickup.domain.order.dto.OrderResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,13 +14,10 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class OrderRepository {
 
     private final JdbcTemplate jdbcTemplate;
-
-    public OrderRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     public Long save(OrderCreateRequest req, String idempotencyKey) {
         String sql = "INSERT INTO orders(store_id, status, total_price, idempotency_key) VALUES (?, 'CREATED', ?, ?)";

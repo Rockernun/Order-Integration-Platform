@@ -1,6 +1,7 @@
 package order_system.pickup.domain.store;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import order_system.pickup.domain.store.dto.StoreCreateRequest;
 import order_system.pickup.domain.store.dto.StoreResponse;
 import org.springframework.http.HttpStatus;
@@ -13,14 +14,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/stores")
 public class StoreController {
 
     private final StoreService storeService;
-
-    public StoreController(StoreService storeService) {
-        this.storeService = storeService;
-    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

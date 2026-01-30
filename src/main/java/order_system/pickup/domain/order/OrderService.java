@@ -1,5 +1,6 @@
 package order_system.pickup.domain.order;
 
+import lombok.RequiredArgsConstructor;
 import order_system.pickup.domain.order.dto.OrderCreateRequest;
 import order_system.pickup.domain.order.dto.OrderResponse;
 import order_system.pickup.domain.order.exception.IdempotencyKeyInconsistentStateException;
@@ -14,17 +15,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class OrderService {
 
     private final StoreRepository storeRepository;
     private final OrderRepository orderRepository;
     private final OutboxRepository outboxRepository;
-
-    public OrderService(StoreRepository storeRepository, OrderRepository orderRepository, OutboxRepository outboxRepository) {
-        this.storeRepository = storeRepository;
-        this.orderRepository = orderRepository;
-        this.outboxRepository = outboxRepository;
-    }
 
     @Transactional
     public OrderResponse createOrder(OrderCreateRequest req, String idempotencyKey) {

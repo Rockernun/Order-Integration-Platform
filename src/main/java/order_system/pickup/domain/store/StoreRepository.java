@@ -3,6 +3,7 @@ package order_system.pickup.domain.store;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import order_system.pickup.domain.store.dto.StoreCreateRequest;
 import order_system.pickup.domain.store.dto.StoreResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,17 +12,14 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class StoreRepository {
-    private final JdbcTemplate jdbcTemplate;
 
-    public StoreRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+    private final JdbcTemplate jdbcTemplate;
 
     public Long save(StoreCreateRequest req) {
         String sql = "INSERT INTO stores(name, partner, partner_store_id, status) VALUES (?, ?, ?, 'ACTIVE')";
 
-        // 데이터를 INSERT 한 직후 AUTO_INCREMENT로 생성되는 PK를 받아오기 위한 객체
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(con -> {

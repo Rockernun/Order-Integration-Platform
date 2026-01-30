@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import order_system.pickup.outbox.dto.OutboxEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class OutboxDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxDispatcher.class);
@@ -22,11 +24,7 @@ public class OutboxDispatcher {
 
     private final String workerId = "worker:" + UUID.randomUUID();
 
-    public OutboxDispatcher(OutboxRepository outboxRepository) {
-        this.outboxRepository = outboxRepository;
-    }
-
-//    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelay = 1000)
     public void dispatch() {
         List<OutboxEvent> events = outboxRepository.findAndLockPending(BATCH_SIZE, workerId);
 

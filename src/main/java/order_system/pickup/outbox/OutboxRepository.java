@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import order_system.pickup.outbox.constant.AggregateType;
 import order_system.pickup.outbox.constant.OutboxEventType;
 import order_system.pickup.outbox.dto.OrderCreatedEventPayload;
@@ -16,13 +17,10 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@RequiredArgsConstructor
 public class OutboxRepository {
 
     private final JdbcTemplate jdbcTemplate;
-
-    public OutboxRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     private static final RowMapper<OutboxEvent> OUTBOX_ROW_MAPPER = (rs, rowNum) -> new OutboxEvent(
             rs.getLong("id"),
