@@ -34,5 +34,3 @@ CREATE TABLE outbox_events (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   processed_at TIMESTAMP NULL
 );
-
-CREATE INDEX idx_outbox_status_created_at ON outbox_events(status, created_at);
