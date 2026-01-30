@@ -26,7 +26,7 @@ public class OutboxDispatcher {
         this.outboxRepository = outboxRepository;
     }
 
-    @Scheduled(fixedDelay = 1000)
+//    @Scheduled(fixedDelay = 1000)
     public void dispatch() {
         List<OutboxEvent> events = outboxRepository.findAndLockPending(BATCH_SIZE, workerId);
 
