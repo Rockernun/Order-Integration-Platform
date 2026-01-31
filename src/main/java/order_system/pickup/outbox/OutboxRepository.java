@@ -120,7 +120,7 @@ public class OutboxRepository {
         SET status = 'PENDING',
             retry_count = ?,
             next_run_at = ?,
-            last_error = ?
+            last_error = ?,
             locked_by = NULL,
             locked_at = NULL
         WHERE id = ?
