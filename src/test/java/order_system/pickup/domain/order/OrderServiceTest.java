@@ -14,6 +14,7 @@ import order_system.pickup.domain.order.dto.OrderCreateRequest;
 import order_system.pickup.domain.order.dto.OrderResponse;
 import order_system.pickup.domain.order.exception.IdempotencyKeyInconsistentStateException;
 import order_system.pickup.domain.order.exception.IdempotencyKeyMissingException;
+import order_system.pickup.domain.order.exception.OrderNotFoundException;
 import order_system.pickup.domain.store.StoreRepository;
 import order_system.pickup.domain.store.dto.StoreResponse;
 import order_system.pickup.domain.store.exception.StoreNotFoundException;
@@ -180,5 +181,51 @@ class OrderServiceTest {
 
         verify(outboxRepository, never()).saveOrderCreated(any(OrderCreatedEventPayload.class));
         verify(orderRepository, never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("createOrder: 주문이 저장은 됐지만 잘못된 주문 아이디로 조회하는 경우 예외를 발생시킨다.")
+    void createOrder_savedButUsingWrongId_thenThrowException() {
+        String idempotencyKey = "idem-1";
+        OrderCreateRequest request = new OrderCreateRequest(1L, 10000);
+
+        StoreResponse store = new StoreResponse(1L, "A 가게", "국민카드", "gm-001", "ACTIVE");
+
+        when(orderRepository.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.empty());
+        when(storeRepository.findById(request.storeId())).thenReturn(Optional.of(store));
+        when(orderRepository.save(request, idempotencyKey)).thenReturn(Long.MAX_VALUE);
+        when(orderRepository.findById(Long.MAX_VALUE)).thenReturn(Optional.empty());
+
+        Assertions.assertThatThrownBy(() -> orderService.createOrder(request, idempotencyKey))
+                .isInstanceOf(OrderNotFoundException.class);
+
+        verify(outboxRepository).saveOrderCreated(any(OrderCreatedEventPayload.class));
+        verify(orderRepository).findById(Long.MAX_VALUE);
+    }
+
+    @Test
+    @DisplayName("getOrder: 주문 정보가 존재하면 결과를 반환한다.")
+    void getOrder_success() {
+        Long orderId = 1L;
+        OrderResponse response = new OrderResponse(orderId, 1L, "CREATED", 10000, Instant.now());
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(response));
+
+        OrderResponse result = orderService.getOrder(orderId);
+
+        Assertions.assertThat(result).isEqualTo(response);
+        verify(orderRepository).findById(orderId);
+    }
+
+    @Test
+    @DisplayName("getOrder: 주문 정보가 존재하지 않으면 예외를 발생시킨다.")
+    void getOrder_notFound() {
+        Long orderId = Long.MAX_VALUE;
+        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+
+        Assertions.assertThatThrownBy(() -> orderService.getOrder(orderId))
+                .isInstanceOf(OrderNotFoundException.class);
+
+        verify(orderRepository).findById(orderId);
     }
 }
