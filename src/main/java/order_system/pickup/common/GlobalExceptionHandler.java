@@ -6,6 +6,7 @@ import order_system.pickup.domain.order.exception.IdempotencyKeyMissingException
 import order_system.pickup.domain.order.exception.OrderNotFoundException;
 import order_system.pickup.domain.store.exception.StoreNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -46,5 +47,15 @@ public class GlobalExceptionHandler {
     public Map<String, Object> handleUnexpected(Exception e) {
         log.error("Unexpected error", e);
         return Map.of("code", "INTERNAL_SERVER_ERROR", "message", "Unexpected error");
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Map<String, Object> handleValidation(MethodArgumentNotValidException e) {
+        String msg = e.getBindingResult().getAllErrors().isEmpty()
+                ? "요청 값의 형식이 올바르지 않습니다."
+                : e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
+
+        return Map.of("code", "INVALID_REQUEST", "message", msg);
     }
 }
